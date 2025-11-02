@@ -61,11 +61,51 @@
             font-size: 0.75rem;
             font-weight: 600;
         }
+        .nav-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .nav-btn.active {
+            background-color: white;
+            color: var(--primary-color);
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .nav-btn:not(.active) {
+            background-color: #eef2ff; /* Indigo 50 */
+            color: #4f46e5; /* Indigo 600 */
+        }
+        .nav-btn:not(.active):hover {
+            background-color: #e0e7ff; /* Indigo 100 */
+        }
+
+        /* Report View specific styles */
+        .report-section {
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 1.5rem;
+        }
+        .report-list-item {
+            border-left: 3px solid #a5b4fc;
+            padding-left: 1rem;
+            margin-top: 0.5rem;
+        }
+        .report-if-then {
+            background-color: #f7f9fd;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            border: 1px dashed #e0e7ff;
+        }
     </style>
     <!-- Local Storage Implementation for Portability -->
     <script type="module">
         let goalData = null;
         const STORAGE_KEY = 'goalContingencyPlannerData';
+        let currentView = 'planner'; // State to manage current view: 'planner' or 'report'
 
         const loadGoalData = () => {
             try {
@@ -87,7 +127,7 @@
                 // Fallback to empty structure on load error
                 goalData = { mainGoal: '', dueDate: '', outcome: '', miniGoals: [] };
             }
-            renderPlanner();
+            renderViewContent();
         };
 
         const saveGoalData = () => {
@@ -97,17 +137,38 @@
             } catch (e) {
                 console.error("Error saving document to localStorage: ", e);
             }
-            // Re-render immediately to reflect any structural changes (like deletions)
-            renderPlanner();
+            // Always re-render to reflect changes and update the displayed view/report
+            renderViewContent();
         };
 
-        const renderPlanner = () => {
+        // --- View Switching and Rendering ---
+        window.switchView = (view) => {
+            currentView = view;
+            renderViewContent();
+        }
+
+        const renderViewContent = () => {
             const container = document.getElementById('planner-container');
-            if (!container || !goalData) return;
+            const navPlannerBtn = document.getElementById('nav-planner');
+            const navReportBtn = document.getElementById('nav-report');
+
+            if (!container || !goalData || !navPlannerBtn || !navReportBtn) return;
+            
+            // Update navigation button styles
+            navPlannerBtn.classList.toggle('active', currentView === 'planner');
+            navReportBtn.classList.toggle('active', currentView === 'report');
 
             container.innerHTML = '';
             
-            // --- Main Goal Section ---
+            if (currentView === 'planner') {
+                renderPlannerView(container);
+            } else if (currentView === 'report') {
+                renderReportView(container);
+            }
+        };
+
+        const renderPlannerView = (container) => {
+            // --- Main Goal Section (Edit View) ---
             const mainGoalHtml = `
                 <div class="card p-6 mb-8 main-goal-header">
                     <h2 class="text-3xl font-extrabold text-gray-900 mb-4">
@@ -128,7 +189,7 @@
             `;
             container.insertAdjacentHTML('beforeend', mainGoalHtml);
 
-            // --- Mini Goals Section ---
+            // --- Mini Goals Section (Edit View) ---
             const miniGoalsList = document.createElement('div');
             miniGoalsList.id = 'mini-goals-list';
             miniGoalsList.className = 'space-y-6';
@@ -203,6 +264,68 @@
             container.appendChild(addGoalButton);
         };
 
+        const renderReportView = (container) => {
+            const mainGoal = goalData.mainGoal || 'No Main Goal Defined';
+            const outcome = goalData.outcome || 'N/A';
+            const dueDate = goalData.dueDate || 'N/A';
+            const miniGoals = goalData.miniGoals || [];
+
+            let reportHtml = `
+                <div class="report-section bg-indigo-50 border-indigo-200">
+                    <h2 class="text-3xl font-extrabold text-indigo-800 mb-4">Master Plan: ${mainGoal}</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
+                        <div>
+                            <strong class="text-sm font-semibold block text-indigo-600">OVERALL OUTCOME:</strong>
+                            <p class="text-lg">${outcome}</p>
+                        </div>
+                        <div>
+                            <strong class="text-sm font-semibold block text-indigo-600">TARGET DATE:</strong>
+                            <p class="text-lg">${dueDate}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold text-gray-800 mb-4 mt-8">Execution Roadmap (${miniGoals.length} Milestones)</h3>
+            `;
+            
+            if (miniGoals.length === 0) {
+                reportHtml += `<p class="text-center text-gray-500 py-10">No Mini Goals have been added yet. Switch to the Planner tab to start!</p>`;
+            } else {
+                reportHtml += miniGoals.map((mg, mgIndex) => `
+                    <div class="report-section">
+                        <h4 class="text-xl font-bold text-indigo-700 mb-3">Milestone ${mgIndex + 1}: ${mg.goal || 'Untitled Mini Goal'}</h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 text-sm text-gray-700">
+                            <div>
+                                <strong class="block text-gray-500">Milestone Outcome:</strong>
+                                ${mg.outcome || 'N/A'}
+                            </div>
+                            <div>
+                                <strong class="block text-gray-500">Due Date:</strong>
+                                ${mg.dueDate || 'N/A'}
+                            </div>
+                        </div>
+
+                        <h5 class="text-lg font-semibold text-gray-700 mt-4 mb-2 border-t pt-3">Contingency Plan (If-Then Strategy)</h5>
+                        <div class="space-y-2">
+                            ${(mg.obstacles || []).length > 0 ? mg.obstacles.map((obs, obsIndex) => `
+                                <div class="report-if-then">
+                                    <p class="text-sm">
+                                        <strong class="text-red-600">IF</strong>: ${obs.if || 'No obstacle defined'}
+                                    </p>
+                                    <p class="text-sm mt-1">
+                                        <strong class="text-green-600">THEN</strong>: ${obs.then || 'No action defined'}
+                                    </p>
+                                </div>
+                            `).join('') : '<p class="text-sm text-gray-500 italic">No IF-THEN contingencies defined for this milestone.</p>'}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            container.innerHTML = reportHtml;
+        };
+        
         // --- Data Manipulation Functions ---
 
         window.updateMainGoal = (key, value) => {
@@ -222,7 +345,6 @@
         };
 
         window.deleteMiniGoal = (mgIndex) => {
-            // Replaced alert() with a modal confirmation message using native browser functionality for simplicity
             if (window.confirm("Are you sure you want to delete this Mini-Goal and all its contingency plans?")) {
                 goalData.miniGoals.splice(mgIndex, 1);
                 saveGoalData();
@@ -264,14 +386,32 @@
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-6 text-center">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-3 text-center">
             <span class="text-indigo-600">G</span>oal & <span class="text-indigo-600">C</span>ontingency Planner
         </h1>
-        <p class="text-sm text-center text-gray-500 mb-4">
-            (Data is saved automatically to your browser's local storage for portability.)
-        </p>
 
-        <!-- Planner Container -->
+        <!-- Navigation Bar -->
+        <nav class="flex justify-center mb-6 border-b border-gray-300">
+            <button id="nav-planner" class="nav-btn" onclick="switchView('planner')">
+                <span class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM5 8a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h5a1 1 0 100-2H6z" clip-rule="evenodd" />
+                    </svg>
+                    Goal Planner (Edit)
+                </span>
+            </button>
+            <button id="nav-report" class="nav-btn" onclick="switchView('report')">
+                 <span class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM6 11a1 1 0 000 2h4a1 1 0 000-2H6z" />
+                        <path fill-rule="evenodd" d="M17 4a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h14zm-5 12V5H5v11h10z" clip-rule="evenodd" />
+                    </svg>
+                    Tracking Report
+                </span>
+            </button>
+        </nav>
+
+        <!-- Planner Container (View Specific Content) -->
         <div id="planner-container">
             <!-- Content will be rendered here by JavaScript -->
             <div class="text-center p-10 text-gray-500">Loading your plan...</div>
